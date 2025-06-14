@@ -293,6 +293,8 @@ public abstract class PointInSetQuery extends Query implements Accountable {
     private BytesRef nextQueryPoint;
     private final ByteArrayComparator comparator;
     private DocIdSetBuilder.BulkAdder adder;
+    private boolean stop = false;
+    private byte[] rightLeafBound;
 
     public MergePointVisitor(TermIterator iterator, DocIdSetBuilder result) throws IOException {
       this.result = result;
@@ -330,6 +332,11 @@ public abstract class PointInSetQuery extends Query implements Accountable {
       }
     }
 
+    @Override
+    public boolean stop() {
+      return stop;
+    }
+
     private boolean matches(byte[] packedValue) {
       while (nextQueryPoint != null) {
         int cmp = comparator.compare(nextQueryPoint.bytes, nextQueryPoint.offset, packedValue, 0);
@@ -338,7 +345,10 @@ public abstract class PointInSetQuery extends Query implements Accountable {
         } else if (cmp < 0) {
           // Query point is before index point, so we move to next query point
           nextQueryPoint = iterator.next();
+          // TODO: check when need
+          stop = nextQueryPoint == null;
         } else {
+          stop = comparator.compare(nextQueryPoint.bytes, nextQueryPoint.offset, rightLeafBound, 0) > 0;
           // Query point is after index point, so we don't collect and we return:
           break;
         }
@@ -348,6 +358,7 @@ public abstract class PointInSetQuery extends Query implements Accountable {
 
     @Override
     public Relation compare(byte[] minPackedValue, byte[] maxPackedValue) {
+      stop = false;
       while (nextQueryPoint != null) {
         int cmpMin =
             comparator.compare(nextQueryPoint.bytes, nextQueryPoint.offset, minPackedValue, 0);
@@ -369,6 +380,10 @@ public abstract class PointInSetQuery extends Query implements Accountable {
           // which can easily happen if many (> 512) docs share this one value
           return Relation.CELL_INSIDE_QUERY;
         } else {
+          if (rightLeafBound == null) {
+            rightLeafBound = new byte[bytesPerDim];
+          }
+          System.arraycopy(maxPackedValue, 0, rightLeafBound, 0, bytesPerDim);
           return Relation.CELL_CROSSES_QUERY;
         }
       }

@@ -907,6 +907,9 @@ public class BKDReader extends PointValues {
               dim * config.bytesPerDim() + prefix,
               config.bytesPerDim() - prefix);
         }
+        if (visitor.stop()) {
+          return;
+        }
         scratchIterator.reset(i, length);
         visitor.visit(scratchIterator, scratchPackedValue);
         i += length;
@@ -953,6 +956,9 @@ public class BKDReader extends PointValues {
                 scratchPackedValue,
                 dim * config.bytesPerDim() + prefix,
                 config.bytesPerDim() - prefix);
+          }
+          if (visitor.stop()) {
+            return;
           }
           visitor.visit(scratchIterator.docIDs[i + j], scratchPackedValue);
         }
