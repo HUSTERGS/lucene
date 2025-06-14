@@ -25,6 +25,7 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.DocBaseBitSetIterator;
 import org.apache.lucene.util.FixedBitSet;
+import org.apache.lucene.util.IORunnable;
 import org.apache.lucene.util.IntsRef;
 import org.apache.lucene.util.LongsRef;
 
@@ -268,6 +269,66 @@ final class DocIdsWriter {
       default:
         throw new IOException("Unsupported number of bits per value: " + bpv);
     }
+  }
+
+  IORunnable readIntsLazily(IndexInput in, int count, int[] docIDs) throws IOException {
+    final int bpv = in.readByte();
+    final long fp = in.getFilePointer();
+    switch (bpv) {
+      case CONTINUOUS_IDS:
+        readContinuousIds(in, count, docIDs);
+        break;
+      case BITSET_IDS:
+        readBitSet(in, count, docIDs);
+        break;
+      case DELTA_BPV_16:
+        readDelta16(in, count, docIDs);
+        break;
+      case BPV_21:
+        in.seek(getInts21EndFP(in, count));
+        return () -> {
+          final long stash = in.getFilePointer();
+          in.seek(fp);
+          readInts21(in, count, docIDs);
+          in.seek(stash);
+        };
+      case BPV_24:
+        in.seek(in.getFilePointer() + count * 3L);
+        return () -> {
+          final long stash = in.getFilePointer();
+          in.seek(fp);
+          if (version < BKDWriter.VERSION_VECTORIZE_BPV24_AND_INTRODUCE_BPV21) {
+            readScalarInts24(in, count, docIDs);
+          } else {
+            readInts24(in, count, docIDs);
+          }
+          in.seek(stash);
+        };
+      case BPV_32:
+        in.seek(in.getFilePointer() + count * 4L);
+        return () -> {
+          final long stash = in.getFilePointer();
+          in.seek(fp);
+          readInts32(in, count, docIDs);
+          in.seek(stash);
+        };
+      case LEGACY_DELTA_VINT:
+        readLegacyDeltaVInts(in, count, docIDs);
+        break;
+      default:
+        throw new IOException("Unsupported number of bits per value: " + bpv);
+    }
+    return null;
+  }
+
+  private static long getInts21EndFP(IndexInput in, int count) {
+    int oneThird = floorToMultipleOf16(count / 3);
+    int numInts = oneThird << 1;
+    int accumulateFP = numInts << 2;
+
+    int remainder = count - oneThird * 3;
+    accumulateFP += (remainder / 3) * Long.BYTES + (remainder % 3) * 3;
+    return in.getFilePointer() + accumulateFP;
   }
 
   private DocIdSetIterator readBitSetIterator(IndexInput in, int count) throws IOException {

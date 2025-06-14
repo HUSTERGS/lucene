@@ -26,6 +26,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.IORunnable;
 import org.apache.lucene.util.IntsRef;
 import org.apache.lucene.util.MathUtil;
 
@@ -662,7 +663,7 @@ public class BKDReader extends PointValues {
       // How many points are stored in this leaf cell:
       int count = in.readVInt();
 
-      docIdsWriter.readInts(in, count, iterator.docIDs);
+      iterator.decoder = docIdsWriter.readIntsLazily(in, count, iterator.docIDs);
 
       return count;
     }
@@ -784,6 +785,7 @@ public class BKDReader extends PointValues {
         }
         visitor.grow(count);
         if (r == PointValues.Relation.CELL_INSIDE_QUERY) {
+          scratchIterator.decode();
           for (int i = 0; i < count; ++i) {
             visitor.visit(scratchIterator.docIDs[i]);
           }
@@ -849,6 +851,7 @@ public class BKDReader extends PointValues {
           visitor.grow(count);
 
           if (r == PointValues.Relation.CELL_INSIDE_QUERY) {
+            scratchIterator.decode();
             for (int i = 0; i < count; ++i) {
               visitor.visit(scratchIterator.docIDs[i]);
             }
@@ -942,6 +945,7 @@ public class BKDReader extends PointValues {
       final int compressedByteOffset =
           compressedDim * config.bytesPerDim() + commonPrefixLengths[compressedDim];
       commonPrefixLengths[compressedDim]++;
+      scratchIterator.decode();
       int i;
       for (i = 0; i < count; ) {
         scratchPackedValue[compressedByteOffset] = in.readByte();
@@ -1034,6 +1038,7 @@ public class BKDReader extends PointValues {
     private int length;
     private int offset;
     final int[] docIDs;
+    IORunnable decoder = null;
     private final DocIdsWriter docIdsWriter;
 
     public BKDReaderDocIDSetIterator(int maxPointsInLeafNode, int version) {
@@ -1041,7 +1046,14 @@ public class BKDReader extends PointValues {
       this.docIdsWriter = new DocIdsWriter(maxPointsInLeafNode, version);
     }
 
-    private void reset(int offset, int length) {
+    final void decode() throws IOException {
+      if (decoder != null) {
+        decoder.run();
+        decoder = null;
+      }
+    }
+
+    private void reset(int offset, int length) throws IOException {
       this.offset = offset;
       this.length = length;
       assert offset + length <= docIDs.length;
@@ -1051,6 +1063,10 @@ public class BKDReader extends PointValues {
 
     @Override
     public int nextDoc() throws IOException {
+      // manually expand on hot path
+      if (decoder != null) {
+        decode();
+      }
       if (idx == length) {
         doc = DocIdSetIterator.NO_MORE_DOCS;
       } else {
