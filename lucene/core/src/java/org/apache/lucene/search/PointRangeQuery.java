@@ -146,6 +146,62 @@ public abstract class PointRangeQuery extends Query {
         return true;
       }
 
+      private IntersectVisitor getOneDimIntersectVisitor(DocIdSetBuilder result) {
+        return new IntersectVisitor() {
+
+          DocIdSetBuilder.BulkAdder adder;
+          boolean stop = false;
+
+          @Override
+          public void grow(int count) {
+            adder = result.grow(count);
+          }
+
+          @Override
+          public void visit(int docID) {
+            adder.add(docID);
+          }
+
+          @Override
+          public void visit(DocIdSetIterator iterator) throws IOException {
+            adder.add(iterator);
+          }
+
+          @Override
+          public void visit(IntsRef ref) {
+            adder.add(ref);
+          }
+
+          @Override
+          public void visit(int docID, byte[] packedValue) {
+            if (matches(packedValue)) {
+              visit(docID);
+            } else {
+              stop = comparator.compare(upperPoint, 0, packedValue, 0) < 0;
+            }
+          }
+
+          @Override
+          public void visit(DocIdSetIterator iterator, byte[] packedValue) throws IOException {
+            if (matches(packedValue)) {
+              adder.add(iterator);
+            } else {
+              stop = comparator.compare(upperPoint, 0, packedValue, 0) < 0;
+            }
+          }
+
+          @Override
+          public boolean stop() {
+            return stop;
+          }
+
+          @Override
+          public Relation compare(byte[] minPackedValue, byte[] maxPackedValue) {
+            return relate(minPackedValue, maxPackedValue);
+          }
+        };
+      }
+
       private IntersectVisitor getIntersectVisitor(DocIdSetBuilder result) {
         return new IntersectVisitor() {
 
@@ -299,7 +355,7 @@ public abstract class PointRangeQuery extends Query {
           return new ConstantScoreScorerSupplier(score(), scoreMode, reader.maxDoc()) {
 
             final DocIdSetBuilder result = new DocIdSetBuilder(reader.maxDoc(), values);
-            final IntersectVisitor visitor = getIntersectVisitor(result);
+            final IntersectVisitor visitor = numDims == 1 ? getOneDimIntersectVisitor(result) : getIntersectVisitor(result);
             long cost = -1;
 
             @Override

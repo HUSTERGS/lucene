@@ -294,7 +294,7 @@ public abstract class PointInSetQuery extends Query implements Accountable {
     private final ByteArrayComparator comparator;
     private DocIdSetBuilder.BulkAdder adder;
     private boolean stop = false;
-    private byte[] rightLeafBound;
+    private final byte[] upperBound = new byte[bytesPerDim];
 
     public MergePointVisitor(TermIterator iterator, DocIdSetBuilder result) throws IOException {
       this.result = result;
@@ -348,7 +348,7 @@ public abstract class PointInSetQuery extends Query implements Accountable {
           // TODO: check when need
           stop = nextQueryPoint == null;
         } else {
-          stop = comparator.compare(nextQueryPoint.bytes, nextQueryPoint.offset, rightLeafBound, 0) > 0;
+          stop = comparator.compare(nextQueryPoint.bytes, nextQueryPoint.offset, upperBound, 0) > 0;
           // Query point is after index point, so we don't collect and we return:
           break;
         }
@@ -380,10 +380,7 @@ public abstract class PointInSetQuery extends Query implements Accountable {
           // which can easily happen if many (> 512) docs share this one value
           return Relation.CELL_INSIDE_QUERY;
         } else {
-          if (rightLeafBound == null) {
-            rightLeafBound = new byte[bytesPerDim];
-          }
-          System.arraycopy(maxPackedValue, 0, rightLeafBound, 0, bytesPerDim);
+          System.arraycopy(maxPackedValue, 0, upperBound, 0, bytesPerDim);
           return Relation.CELL_CROSSES_QUERY;
         }
       }
