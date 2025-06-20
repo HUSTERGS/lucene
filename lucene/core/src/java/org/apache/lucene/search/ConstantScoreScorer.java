@@ -54,6 +54,11 @@ public final class ConstantScoreScorer extends Scorer {
     public long cost() {
       return delegate.cost();
     }
+
+    @Override
+    public int docIDRunEnd() throws IOException {
+      return delegate.docIDRunEnd();
+    }
   }
 
   private final float score;
@@ -106,6 +111,11 @@ public final class ConstantScoreScorer extends Scorer {
             @Override
             public float matchCost() {
               return twoPhaseIterator.matchCost();
+            }
+
+            @Override
+            public int docIDRunEnd() throws IOException {
+              return twoPhaseIterator.docIDRunEnd();
             }
           };
     } else {

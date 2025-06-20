@@ -81,6 +81,11 @@ public abstract class TwoPhaseIterator {
         }
       }
     }
+
+    @Override
+    public int docIDRunEnd() throws IOException {
+      return Math.max(super.docIDRunEnd(), twoPhaseIterator.docIDRunEnd());
+    }
   }
 
   /**
