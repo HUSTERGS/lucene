@@ -152,10 +152,29 @@ public final class DisjunctionDISIApproximation extends AbstractDocIdSetIterator
     }
 
     minOtherDoc = Integer.MAX_VALUE;
+
+    boolean bitSetFull = false;
     for (DisiWrapper w : otherIterators) {
-      w.approximation.intoBitSet(upTo, bitSet, offset);
+      if (!bitSetFull) {
+        bitSetFull = bitSet.scanIsFull();
+      }
+      if (bitSetFull) {
+        w.approximation.advance(upTo);
+      } else {
+        w.approximation.intoBitSet(upTo, bitSet, offset);
+      }
       w.doc = w.approximation.docID();
       minOtherDoc = Math.min(minOtherDoc, w.doc);
+    }
+
+    while (leadTop.doc < upTo) {
+      if (bitSetFull) {
+        leadTop.approximation.advance(upTo);
+      } else {
+        leadTop.approximation.intoBitSet(upTo, bitSet, offset);
+      }
+      leadTop.doc = leadTop.approximation.docID();
+      leadTop = leadIterators.updateTop();
     }
 
     doc = Math.min(leadTop.doc, minOtherDoc);

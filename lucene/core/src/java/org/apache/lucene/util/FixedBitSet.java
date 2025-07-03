@@ -38,6 +38,11 @@ public final class FixedBitSet extends BitSet {
   // An array that is small enough to use reasonable amounts of RAM and large enough to allow
   // Arrays#mismatch to use SIMD instructions and multiple registers under the hood.
   private static final long[] ZEROES = new long[32];
+  private static final long[] ONES = new long[32];
+
+  static {
+    Arrays.fill(ONES, -1L);
+  }
 
   private final long[] bits; // Array of longs holding the bits
   private final int numBits; // The number of bits in use
@@ -631,6 +636,23 @@ public final class FixedBitSet extends BitSet {
     for (int i = 0; i < count; i += ZEROES.length) {
       int cmpLen = Math.min(ZEROES.length, bits.length - i);
       if (Arrays.equals(bits, i, i + cmpLen, ZEROES, 0, cmpLen) == false) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  public boolean scanIsFull() {
+    // This 'slow' implementation is still faster than any external one could be
+    // (e.g.: (bitSet.length() == 0 || bitSet.nextSetBit(0) == -1))
+    // especially for small BitSets
+    // Depends on the ghost bits being clear!
+    final int count = numWords;
+
+    for (int i = 0; i < count; i += ONES.length) {
+      int cmpLen = Math.min(ONES.length, bits.length - i);
+      if (Arrays.equals(bits, i, i + cmpLen, ONES, 0, cmpLen) == false) {
         return false;
       }
     }
