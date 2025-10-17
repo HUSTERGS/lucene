@@ -43,6 +43,7 @@ final class BlockMaxConjunctionBulkScorer extends BulkScorer {
   private final DocIdSetIterator lead;
   private final SimpleScorable scorable = new SimpleScorable();
   private final double[] sumOfOtherClauses;
+  private final float[] sumOfOtherClausesFloat;
   private final int maxDoc;
   private final DocAndFloatFeatureBuffer docAndScoreBuffer = new DocAndFloatFeatureBuffer();
   private final DocAndScoreAccBuffer docAndScoreAccBuffer = new DocAndScoreAccBuffer();
@@ -62,7 +63,9 @@ final class BlockMaxConjunctionBulkScorer extends BulkScorer {
             .toArray(DocIdSetIterator[]::new);
     lead = iterators[0];
     this.sumOfOtherClauses = new double[this.scorers.length];
+    this.sumOfOtherClausesFloat = new float[this.scorers.length];
     Arrays.fill(sumOfOtherClauses, Double.POSITIVE_INFINITY);
+    Arrays.fill(sumOfOtherClausesFloat, Float.POSITIVE_INFINITY);
     this.maxDoc = maxDoc;
   }
 
@@ -77,8 +80,15 @@ final class BlockMaxConjunctionBulkScorer extends BulkScorer {
       sumOfOtherClauses[i] = maxClauseScore;
       maxWindowScore += maxClauseScore;
     }
+
+    float compensation = 0f;
     for (int i = sumOfOtherClauses.length - 2; i >= 0; --i) {
       sumOfOtherClauses[i] += sumOfOtherClauses[i + 1];
+      // my version
+      float y = sumOfOtherClausesFloat[i + 1] - compensation;
+      float t = sumOfOtherClausesFloat[i] + y;
+      compensation = (t - sumOfOtherClausesFloat[i]) - y;
+      sumOfOtherClausesFloat[i] = t;
     }
     return (float) maxWindowScore;
   }
@@ -179,8 +189,8 @@ final class BlockMaxConjunctionBulkScorer extends BulkScorer {
       docAndScoreAccBuffer.copyFrom(docAndScoreBuffer);
 
       for (int i = 1; i < scorers.length; ++i) {
-        double sumOfOtherClause = sumOfOtherClauses[i];
-        if (sumOfOtherClause != sumOfOtherClauses[i - 1]) {
+        float sumOfOtherClause = sumOfOtherClausesFloat[i];
+        if (sumOfOtherClause != sumOfOtherClausesFloat[i - 1]) {
           // two equal consecutive values mean that the first clause always returns a score of zero,
           // so we don't need to filter hits by score again.
           ScorerUtil.filterCompetitiveHits(
@@ -191,7 +201,7 @@ final class BlockMaxConjunctionBulkScorer extends BulkScorer {
       }
 
       for (int i = 0; i < docAndScoreAccBuffer.size; ++i) {
-        scorable.score = (float) docAndScoreAccBuffer.scores[i];
+        scorable.score = docAndScoreAccBuffer.scores[i];
         collector.collect(docAndScoreAccBuffer.docs[i]);
       }
     }

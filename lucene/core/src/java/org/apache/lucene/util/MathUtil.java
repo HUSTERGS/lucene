@@ -197,4 +197,13 @@ public final class MathUtil {
   public static int unsignedMin(int a, int b) {
     return Integer.compareUnsigned(a, b) < 0 ? a : b;
   }
+
+  public static void kahanAdd(float[] sum, float[] toAdd, float[] compensation, int size) {
+    for (int i = 0; i < size; i++) {
+      float y = toAdd[i] - compensation[i];
+      float t = sum[i] + y;
+      compensation[i] = (t - sum[i]) - y;
+      sum[i] = t;
+    }
+  }
 }

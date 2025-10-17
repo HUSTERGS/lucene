@@ -138,6 +138,21 @@ class ScorerUtil {
     return minRequiredScore;
   }
 
+  static float minRequiredScore(
+      float maxRemainingScore, float minCompetitiveScore, int numScorers) {
+
+    float minRequiredScore = minCompetitiveScore - maxRemainingScore;
+    float step = Math.ulp(minCompetitiveScore);
+
+    while (minRequiredScore > 0f
+        && (float) MathUtil.sumUpperBound(minRequiredScore + maxRemainingScore, numScorers)
+        >= minCompetitiveScore) {
+      minRequiredScore -= step;
+    }
+
+    return minRequiredScore;
+  }
+
   /**
    * Filters competitive hits from the provided {@link DocAndScoreAccBuffer}.
    *
@@ -145,12 +160,27 @@ class ScorerUtil {
    * enough to exceed the minimum competitive score, given the maximum remaining score and the
    * number of scorers.
    */
+//  static void filterCompetitiveHits(
+//      DocAndScoreAccBuffer buffer,
+//      double maxRemainingScore,
+//      float minCompetitiveScore,
+//      int numScorers) {
+//    double minRequiredScore = minRequiredScore(maxRemainingScore, minCompetitiveScore, numScorers);
+//
+//    if (minRequiredScore <= 0) {
+//      return;
+//    }
+//
+//    buffer.size =
+//        VectorUtil.filterByScore(buffer.docs, buffer.scores, minRequiredScore, buffer.size);
+//  }
+
   static void filterCompetitiveHits(
       DocAndScoreAccBuffer buffer,
-      double maxRemainingScore,
+      float maxRemainingScore,
       float minCompetitiveScore,
       int numScorers) {
-    double minRequiredScore = minRequiredScore(maxRemainingScore, minCompetitiveScore, numScorers);
+    float minRequiredScore = minRequiredScore(maxRemainingScore, minCompetitiveScore, numScorers);
 
     if (minRequiredScore <= 0) {
       return;

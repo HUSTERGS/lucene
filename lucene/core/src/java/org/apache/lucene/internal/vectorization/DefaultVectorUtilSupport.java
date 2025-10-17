@@ -396,6 +396,22 @@ final class DefaultVectorUtilSupport implements VectorUtilSupport {
   }
 
   @Override
+  public int filterByScore(
+      int[] docBuffer, float[] scoreBuffer, float minScoreInclusive, int upTo) {
+    int newSize = 0;
+    for (int i = 0; i < upTo; ++i) {
+      int doc = docBuffer[i];
+      float score = scoreBuffer[i];
+      docBuffer[newSize] = doc;
+      scoreBuffer[newSize] = score;
+      if (score >= minScoreInclusive) {
+        newSize++;
+      }
+    }
+    return newSize;
+  }
+
+  @Override
   public float[] l2normalize(float[] v, boolean throwOnZero) {
     double l1norm = this.dotProduct(v, v);
     if (l1norm == 0) {

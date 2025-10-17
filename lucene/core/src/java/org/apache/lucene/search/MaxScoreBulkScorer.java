@@ -44,11 +44,11 @@ final class MaxScoreBulkScorer extends BulkScorer {
   float nextMinCompetitiveScore;
   private final long cost;
   final SimpleScorable scorable = new SimpleScorable();
-  final double[] maxScoreSums;
+  final float[] maxScoreSums;
   private final DisiWrapper filter;
 
   private final FixedBitSet windowMatches = new FixedBitSet(INNER_WINDOW_SIZE);
-  private final double[] windowScores = new double[INNER_WINDOW_SIZE];
+  private final float[] windowScores = new float[INNER_WINDOW_SIZE];
 
   private final DocAndFloatFeatureBuffer docAndScoreBuffer = new DocAndFloatFeatureBuffer();
   private final DocAndScoreAccBuffer docAndScoreAccBuffer = new DocAndScoreAccBuffer();
@@ -67,7 +67,7 @@ final class MaxScoreBulkScorer extends BulkScorer {
     }
     this.cost = cost;
     essentialQueue = DisiPriorityQueue.ofMaxSize(allScorers.length);
-    maxScoreSums = new double[allScorers.length];
+    maxScoreSums = new float[allScorers.length];
   }
 
   // Number of outer windows that have been evaluated
@@ -197,10 +197,16 @@ final class MaxScoreBulkScorer extends BulkScorer {
         boolean match =
             (acceptDocs == null || acceptDocs.get(doc))
                 && (filter.twoPhaseView == null || filter.twoPhaseView.matches());
-        double score = 0;
+        float score = 0f;
+        float compensation = 0f;
+
         do {
           if (match) {
-            score += top.scorer.score();
+            float s = top.scorer.score();
+            float y = s - compensation;
+            float t = score + y;
+            compensation = (t - score) - y;
+            score = t;
           }
           top.doc = top.iterator.nextDoc();
           top = essentialQueue.updateTop();
@@ -272,7 +278,7 @@ final class MaxScoreBulkScorer extends BulkScorer {
           docAndScoreAccBuffer.docs[docAndScoreAccBuffer.size] = innerWindowMin + index;
           docAndScoreAccBuffer.scores[docAndScoreAccBuffer.size] = windowScores[index];
           docAndScoreAccBuffer.size++;
-          windowScores[index] = 0d;
+          windowScores[index] = 0;
         });
     windowMatches.clear(0, innerWindowSize);
 
@@ -350,7 +356,7 @@ final class MaxScoreBulkScorer extends BulkScorer {
     }
 
     for (int i = 0; i < buffer.size; ++i) {
-      scorable.score = (float) buffer.scores[i];
+      scorable.score = buffer.scores[i];
       collector.collect(buffer.docs[i]);
     }
   }
@@ -386,7 +392,7 @@ final class MaxScoreBulkScorer extends BulkScorer {
       if (maxScoreSumFloat < scorable.minCompetitiveScore) {
         maxScoreSum = newMaxScoreSum;
         allScorers[firstEssentialScorer] = w;
-        maxScoreSums[firstEssentialScorer] = maxScoreSum;
+        maxScoreSums[firstEssentialScorer] = maxScoreSumFloat;
         firstEssentialScorer++;
       } else {
         allScorers[allScorers.length - 1 - (i - firstEssentialScorer)] = w;

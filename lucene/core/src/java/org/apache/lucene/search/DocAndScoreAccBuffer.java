@@ -18,6 +18,7 @@ package org.apache.lucene.search;
 
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.IntsRef;
+import java.util.Arrays;
 
 /**
  * Wrapper around parallel arrays storing doc IDs and their corresponding score accumulators.
@@ -26,13 +27,15 @@ import org.apache.lucene.util.IntsRef;
  */
 public final class DocAndScoreAccBuffer {
 
-  private static final double[] EMPTY_DOUBLES = new double[0];
+  private static final float[] EMPTY_FLOAT = new float[0];
 
   /** Doc IDs */
   public int[] docs = IntsRef.EMPTY_INTS;
 
   /** Scores */
-  public double[] scores = EMPTY_DOUBLES;
+  public float[] scores = EMPTY_FLOAT;
+
+  public float[] compensate = EMPTY_FLOAT;
 
   /** Number of valid entries in the doc ID and score arrays. */
   public int size;
@@ -47,7 +50,8 @@ public final class DocAndScoreAccBuffer {
   public void growNoCopy(int minSize) {
     if (docs.length < minSize) {
       docs = ArrayUtil.growNoCopy(docs, minSize);
-      scores = new double[docs.length];
+      scores = new float[docs.length];
+      compensate = new float[docs.length];
     }
   }
 
@@ -59,6 +63,7 @@ public final class DocAndScoreAccBuffer {
     if (docs.length < minSize) {
       docs = ArrayUtil.grow(docs, minSize);
       scores = ArrayUtil.growExact(scores, docs.length);
+      compensate = ArrayUtil.growExact(compensate, docs.length);
     }
   }
 
@@ -69,9 +74,8 @@ public final class DocAndScoreAccBuffer {
   public void copyFrom(DocAndFloatFeatureBuffer buffer) {
     growNoCopy(buffer.size);
     System.arraycopy(buffer.docs, 0, docs, 0, buffer.size);
-    for (int i = 0; i < buffer.size; ++i) {
-      scores[i] = buffer.features[i];
-    }
+    System.arraycopy(buffer.features, 0, scores, 0, buffer.size);
+    Arrays.fill(compensate, 0, buffer.size, 0f);
     this.size = buffer.size;
   }
 }

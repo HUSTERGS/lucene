@@ -449,10 +449,10 @@ public class TestVectorUtil extends LuceneTestCase {
       for (int i = 0; i < 128 + padding; ++i) {
         doc += TestUtil.nextInt(random(), 1, 1000);
         b1.docs[i] = b2.docs[i] = doc;
-        b1.scores[i] = b2.scores[i] = random().nextDouble();
+        b1.scores[i] = b2.scores[i] = random().nextFloat();
       }
 
-      double minScoreInclusive = random().nextDouble();
+      float minScoreInclusive = random().nextFloat();
       int upTo = TestUtil.nextInt(random(), 0, 127);
       b1.size = slowFilterByScore(b1.docs, b1.scores, minScoreInclusive, upTo);
       b2.size = VectorUtil.filterByScore(b2.docs, b2.scores, minScoreInclusive, upTo);
@@ -464,7 +464,7 @@ public class TestVectorUtil extends LuceneTestCase {
   }
 
   private static int slowFilterByScore(
-      int[] docBuffer, double[] scoreBuffer, double minScoreInclusive, int upTo) {
+      int[] docBuffer, float[] scoreBuffer, float minScoreInclusive, int upTo) {
     int newSize = 0;
     for (int i = 0; i < upTo; i++) {
       if (scoreBuffer[i] >= minScoreInclusive) {

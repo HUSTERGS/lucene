@@ -143,6 +143,8 @@ public interface VectorUtilSupport {
    */
   int filterByScore(int[] docBuffer, double[] scoreBuffer, double minScoreInclusive, int upTo);
 
+  int filterByScore(int[] docBuffer, float[] scoreBuffer, float minScoreInclusive, int upTo);
+
   float[] l2normalize(float[] v, boolean throwOnZero);
 
   /**

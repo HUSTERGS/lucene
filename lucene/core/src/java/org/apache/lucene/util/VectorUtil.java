@@ -492,6 +492,15 @@ public final class VectorUtil {
     return IMPL.filterByScore(docBuffer, scoreBuffer, minScoreInclusive, upTo);
   }
 
+  public static int filterByScore(
+      int[] docBuffer, float[] scoreBuffer, float minScoreInclusive, int upTo) {
+    if (docBuffer.length != scoreBuffer.length || docBuffer.length < upTo) {
+      throw new IllegalArgumentException(
+          "docBuffer and scoreBuffer should keep same length and at least as long as upTo");
+    }
+    return IMPL.filterByScore(docBuffer, scoreBuffer, minScoreInclusive, upTo);
+  }
+
   /**
    * Expands 64 integers in-place into a 256-element array by extracting individual bytes. Each
    * 32-bit integer is split into 4 bytes. Only works on arrays with 256 length.
